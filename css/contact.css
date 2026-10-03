@@ -859,3 +859,24 @@ textarea.form-control {
     transition: none !important;
   }
 }
+
+.contact-form .form-control.is-invalid {
+  border-color: #dc2626;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, .12);
+}
+.contact-form .invalid-feedback {
+  color: #dc2626;
+  font-size: 13px;
+  margin-top: 6px;
+}
+.contact-form .error-banner {
+  display: none;
+  align-items: center;
+  gap: 10px;
+  margin-top: 16px;
+  padding: 12px 16px;
+  border-radius: 10px;
+  background: #fef2f2;
+  color: #b91c1c;
+  font-weight: 500;
+}

@@ -84,109 +84,62 @@ document.addEventListener('DOMContentLoaded', () => {
       if (href === current) a.classList.add('active');
     });
 
-
     /* download items: PDFs -> real file download, external -> open in new tab */
-const DOWNLOADS = [
+    const DOWNLOADS = [
+      {
+        label: 'Software Brochure (PDF)',
+        file: 'assets/downloads/BROSITSOLUTIONSNEW.pdf',
+        external: false
+      },
+      {
+        label: 'Hardware Brochure (PDF)',
+        file: 'assets/downloads/BROSITSOLUTIONSPRINTERHARDWARE.pdf',
+        external: false
+      },
+      {
+        label: 'UltraViewer (Remote Support)',
+        url: 'https://www.ultraviewer.net/en/UltraViewer_setup_6.6_en.exe',
+        external: true
+      },
+      {
+        label: 'AnyDesk (Remote Support)',
+        url: 'https://anydesk.com/en/downloads/thank-you?dv=win_exe',
+        external: true
+      }
+    ];
 
-  {
-    label: 'Software Brochure (PDF)',
-    file: 'assets/downloads/BROSITSOLUTIONSNEW.pdf',
-    external: false
-  },
+    header.querySelectorAll('.download-item').forEach((btn, i) => {
+      btn.addEventListener('click', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
 
-  {
-    label: 'Hardware Brochure (PDF)',
-    file: 'assets/downloads/BROSITSOLUTIONSPRINTERHARDWARE.pdf',
-    external: false
-  },
+        const item = DOWNLOADS[i];
+        if (!item) return;
 
-  {
-    label: 'UltraViewer (Remote Support)',
-    url: 'https://www.ultraviewer.net/en/UltraViewer_setup_6.6_en.exe',
-    external: true
-  },
+        if (item.external) {
+          // UltraViewer / AnyDesk
+          const link = document.createElement('a');
+          link.href = item.url;
+          link.target = '_blank';
+          link.rel = 'noopener noreferrer';
+          document.body.appendChild(link);
+          link.click();
+          link.remove();
+        } else {
+          // LOCAL PDF
+          const link = document.createElement('a');
+          link.href = item.file;
+          link.download = item.file.split('/').pop();
+          link.setAttribute('download', '');
+          link.style.display = 'none';
+          document.body.appendChild(link);
+          link.click();
+          link.remove();
+        }
 
-  {
-    label: 'AnyDesk (Remote Support)',
-    url: 'https://anydesk.com/en/downloads/thank-you?dv=win_exe',
-    external: true
-  }
-
-];
-
-
-header.querySelectorAll('.download-item').forEach((btn, i) => {
-
-  btn.addEventListener('click', function (e) {
-
-    e.preventDefault();
-    e.stopPropagation();
-
-    const item = DOWNLOADS[i];
-
-    if (!item) {
-      return;
-    }
-
-
-    // =====================================================
-    // EXTERNAL FILE
-    // UltraViewer / AnyDesk
-    // =====================================================
-
-    if (item.external) {
-
-      const link = document.createElement('a');
-
-      link.href = item.url;
-
-      link.target = '_blank';
-
-      link.rel = 'noopener noreferrer';
-
-      document.body.appendChild(link);
-
-      link.click();
-
-      link.remove();
-
-    }
-
-
-    // =====================================================
-    // LOCAL PDF
-    // =====================================================
-
-    else {
-
-      const link = document.createElement('a');
-
-      link.href = item.file;
-
-      link.download = item.file.split('/').pop();
-
-      link.setAttribute('download', '');
-
-      link.style.display = 'none';
-
-      document.body.appendChild(link);
-
-      link.click();
-
-      link.remove();
-
-    }
-
-
-    // Close dropdown
-
-    setDownload(false);
-
-  });
-
-});
-
-
+        setDownload(false);
+      });
+    });
   })();
 
   /* ==========================================================
@@ -616,103 +569,167 @@ header.querySelectorAll('.download-item').forEach((btn, i) => {
   }
 
   /* ==========================================================
-     CONTACT — client-side validation + fake async submit
+     CONTACT — validation + numbers-only phone + save to Google Sheet
+     (single block only — old fake-submit block removed)
      ========================================================== */
   if (page === 'contact') {
     (function contact() {
       const form = document.querySelector('.contact-form');
       if (!form) return;
 
+      // ===== GOOGLE APPS SCRIPT WEB APP URL =====
+      // const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxRhqy3p7ZiUJlwlMr7pYTOVIRAbCGpt0nSfovuG8eD-aNxHJ9Q-3oEkvLgmavfgLk/exec';
+       const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyXnwQBfkauJanjUGvDsSiznc2Ax6sS9BO9I3vlTW43CqiFwpSLVp-HfQwyndIVXNEY/exec';
+
+
       const fields = {
         name: form.querySelector('#c-name'),
         email: form.querySelector('#c-email'),
         phone: form.querySelector('#c-phone'),
+        business: form.querySelector('#c-business'),
         message: form.querySelector('#c-message'),
       };
       const errors = {
-        name: form.querySelector('#c-name').closest('.col-md-6').querySelector('.invalid-feedback'),
-        email: form.querySelector('#c-email').closest('.col-md-6').querySelector('.invalid-feedback'),
-        phone: form.querySelector('#c-phone').closest('.col-md-6').querySelector('.invalid-feedback'),
-        message: form.querySelector('#c-message').closest('.col-12').querySelector('.invalid-feedback'),
+        name: fields.name.closest('.col-md-6').querySelector('.invalid-feedback'),
+        email: fields.email.closest('.col-md-6').querySelector('.invalid-feedback'),
+        phone: fields.phone.closest('.col-md-6').querySelector('.invalid-feedback'),
+        message: fields.message.closest('.col-12').querySelector('.invalid-feedback'),
       };
       const submitBtn = form.querySelector('.submit-btn');
-      const successBanner = document.querySelector('.success-banner');
+      const btnNormal = submitBtn.querySelector('.btn-normal');
+      const btnSending = submitBtn.querySelector('.btn-sending');
+      const successBanner = form.querySelector('.success-banner');
+      const errorBanner = form.querySelector('.error-banner');
       const touched = {};
+      const validated = ['name', 'email', 'phone', 'message'];   // business optional
 
+      /* ---------- PHONE: digits only ---------- */
+      const phone = fields.phone;
+
+      phone.addEventListener('keydown', (e) => {
+        const allowed = ['Backspace', 'Delete', 'Tab', 'Enter', 'Escape',
+                         'ArrowLeft', 'ArrowRight', 'Home', 'End'];
+        if (allowed.includes(e.key) || e.ctrlKey || e.metaKey) return;
+        if (!/^[0-9]$/.test(e.key)) e.preventDefault();
+      });
+
+      phone.addEventListener('input', () => {
+        const clean = phone.value.replace(/\D/g, '').slice(0, 10);
+        if (phone.value !== clean) phone.value = clean;
+      });
+
+      phone.addEventListener('paste', (e) => {
+        e.preventDefault();
+        let digits = (e.clipboardData || window.clipboardData)
+          .getData('text').replace(/\D/g, '');
+        if (digits.length > 10 && digits.startsWith('91')) digits = digits.slice(2);
+        if (digits.length > 10 && digits.startsWith('0')) digits = digits.slice(1);
+        phone.value = digits.slice(0, 10);
+        phone.dispatchEvent(new Event('input', { bubbles: true }));
+      });
+
+      /* ---------- VALIDATION ---------- */
       function isValid(key) {
         const v = fields[key].value.trim();
-        if (key === 'name') return v.length >= 2;
-        if (key === 'email') return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
-        if (key === 'phone') return /^[0-9]{10}$/.test(v);
+        if (key === 'name') return /^[\p{L} .'-]{2,}$/u.test(v);
+        if (key === 'email') return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v);
+        if (key === 'phone') return /^[6-9][0-9]{9}$/.test(v);
         if (key === 'message') return v.length >= 10;
         return true;
       }
 
       function updateField(key) {
+        if (!errors[key]) return;
         const invalid = touched[key] && !isValid(key);
         fields[key].classList.toggle('is-invalid', invalid);
-        if (errors[key]) errors[key].style.display = invalid ? 'block' : 'none';
+        errors[key].style.display = invalid ? 'block' : 'none';
       }
 
-      Object.keys(fields).forEach(key => {
+      validated.forEach((key) => {
         fields[key].addEventListener('blur', () => { touched[key] = true; updateField(key); });
-        fields[key].addEventListener('input', () => { if (touched[key]) updateField(key); });
+        fields[key].addEventListener('input', () => {
+          if (touched[key]) updateField(key);
+          if (successBanner) successBanner.style.display = 'none';
+          if (errorBanner) errorBanner.style.display = 'none';
+        });
       });
 
-      form.addEventListener('submit', (e) => {
+      /* ---------- BUTTON STATE ---------- */
+      function setSending(isSending) {
+        submitBtn.disabled = isSending;
+        if (btnNormal) btnNormal.style.display = isSending ? 'none' : '';
+        if (btnSending) btnSending.style.display = isSending ? '' : 'none';
+      }
+
+      /* ---------- SUBMIT -> GOOGLE SHEET ---------- */
+      form.addEventListener('submit', async (e) => {
         e.preventDefault();
-        Object.keys(fields).forEach(key => { touched[key] = true; updateField(key); });
-        const allValid = Object.keys(fields).every(isValid);
-        if (!allValid) return;
+        if (submitBtn.disabled) return;                 // double click thadukka
 
-        submitBtn.disabled = true;
-        submitBtn.querySelectorAll('span').forEach(s => s.style.display = 'none');
-        const sendingSpan = submitBtn.querySelector('span:last-child');
-        if (sendingSpan) sendingSpan.style.display = '';
+        if (successBanner) successBanner.style.display = 'none';
+        if (errorBanner) errorBanner.style.display = 'none';
 
-        setTimeout(() => {
-          submitBtn.disabled = false;
-          submitBtn.querySelectorAll('span').forEach(s => s.style.display = '');
-          if (sendingSpan) sendingSpan.style.display = 'none';
+        validated.forEach((key) => { touched[key] = true; updateField(key); });
+
+        const firstInvalid = validated.find((k) => !isValid(k));
+        if (firstInvalid) { fields[firstInvalid].focus(); return; }
+
+        setSending(true);
+
+        // x-www-form-urlencoded -> no CORS preflight, Apps Script la e.parameter la varum
+        const body = new URLSearchParams({
+          name: fields.name.value.trim(),
+          email: fields.email.value.trim(),
+          phone: fields.phone.value.trim(),
+          business: fields.business.value.trim(),
+          message: fields.message.value.trim(),
+        });
+
+        try {
+          // no-cors: response padikka mudiyathu, but data Sheet ku poidum
+          await fetch(SCRIPT_URL, {
+            method: 'POST',
+            mode: 'no-cors',
+            body: body,
+          });
+
           if (successBanner) successBanner.style.display = 'flex';
           form.reset();
-          Object.keys(fields).forEach(key => { touched[key] = false; updateField(key); });
-        }, 1200);
+          validated.forEach((key) => { touched[key] = false; updateField(key); });
+        } catch (err) {
+          console.error('Form submit error:', err);
+          if (errorBanner) errorBanner.style.display = 'flex';
+        } finally {
+          setSending(false);
+        }
       });
     })();
   }
 
+  /* ================= HEADER HEIGHT FIX (hero banner maraiyaama) ================= */
+  (function () {
+    var header = document.querySelector('.navbar-wrap');
+    var main = document.querySelector('main');
+    if (!header || !main) return;
 
-/* ================= HEADER HEIGHT FIX (hero banner maraiyaama) ================= */
-(function () {
-  var header = document.querySelector('.navbar-wrap');
-  var main = document.querySelector('main');
-  if (!header || !main) return;
+    function applyHeaderSpace() {
+      var h = header.offsetHeight;
+      var pos = window.getComputedStyle(header).position;
 
-  function applyHeaderSpace() {
-    var h = header.offsetHeight;
-    var pos = window.getComputedStyle(header).position;
+      document.documentElement.style.setProperty('--header-h', h + 'px');
 
-    document.documentElement.style.setProperty('--header-h', h + 'px');
+      // header fixed / absolute na mattum main-ku space; sticky / static na venam
+      main.style.paddingTop = (pos === 'fixed' || pos === 'absolute') ? h + 'px' : '0px';
+    }
 
-    // header fixed / absolute na mattum main-ku space; sticky / static na venam
-    main.style.paddingTop = (pos === 'fixed' || pos === 'absolute') ? h + 'px' : '0px';
-  }
+    applyHeaderSpace();
+    window.addEventListener('load', applyHeaderSpace);
+    window.addEventListener('resize', applyHeaderSpace);
 
-  applyHeaderSpace();
-  window.addEventListener('load', applyHeaderSpace);
-  window.addEventListener('resize', applyHeaderSpace);
-
-  // topbar / menu / fonts load aagi height maarina kooda auto update
-  if ('ResizeObserver' in window) {
-    new ResizeObserver(applyHeaderSpace).observe(header);
-  }
-})();
-
-
-
-
-
-
+    // topbar / menu / fonts load aagi height maarina kooda auto update
+    if ('ResizeObserver' in window) {
+      new ResizeObserver(applyHeaderSpace).observe(header);
+    }
+  })();
 
 });
