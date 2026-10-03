@@ -1,0 +1,50 @@
+/* ============================================================
+   SMOOTH.CSS — smooth page transitions + smooth scrolling
+   (new file — existing design / layout CSS is NOT touched)
+   Load this LAST in <head>.
+   ============================================================ */
+
+/* ---------- 1) PAGE TRANSITION (no blank / hiding screen) ---------- */
+/* Browser keeps the OLD page on screen until the NEW page is ready,
+   then cross-fades them. The navbar stays fixed in place, so only the
+   page content changes. Browsers without support just open the page
+   normally (no flash, nothing hides). */
+@view-transition {
+  navigation: auto;
+}
+.navbar-wrap {
+  view-transition-name: site-navbar;
+}
+::view-transition-group(site-navbar) {
+  animation-duration: 0s;
+}
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 0.28s;
+  animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ---------- 2) SMOOTH SCROLL (Lenis) ---------- */
+/* native smooth + Lenis smoothing together = laggy, so turn the
+   native one off only while Lenis is running */
+html.lenis,
+html.lenis body {
+  height: auto;
+}
+html.lenis {
+  scroll-behavior: auto !important;
+}
+.lenis.lenis-stopped {
+  overflow: clip;                  /* modal / mobile menu open */
+}
+.lenis [data-lenis-prevent] {
+  overscroll-behavior: contain;    /* modal panels scroll on their own */
+}
+.lenis.lenis-smooth iframe {
+  pointer-events: none;
+}
+
+/* ---------- 3) Respect "reduce motion" ---------- */
+@media (prefers-reduced-motion: reduce) {
+  @view-transition { navigation: none; }
+}
